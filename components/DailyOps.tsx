@@ -9,7 +9,8 @@ import {
 
 interface DailyOpsProps {
   newsItems: NewsItem[];
-  setNewsItems: React.Dispatch<React.SetStateAction<NewsItem[]>>;
+  onAddNews: (newItem: Omit<NewsItem, 'id'>) => Promise<void>; // รับฟังก์ชันบันทึกลง Supabase
+  onUpdateNews?: (item: NewsItem) => Promise<void>; // (เผื่อไว้สำหรับ Update)
   currentMonthTheme: string;
 }
 
@@ -110,24 +111,27 @@ export const DailyOps: React.FC<DailyOpsProps> = ({ newsItems, setNewsItems, cur
     setIsAnalyzing(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.summary) return;
 
     if (editingId) {
-      // Update existing item
-      setNewsItems(prev => prev.map(item => 
-        item.id === editingId 
-        ? {
-            ...item,
-            originalText: inputText, // Update original text if changed in analysis box
+        // สำหรับ Update (ถ้าคุณทำฟังก์ชัน handleUpdate ใน App.tsx ไว้)
+        // ... โค้ดอัปเดต
+    } else {
+        // สำหรับสร้างใหม่: ส่งไปที่ Supabase ผ่าน Props
+        await onAddNews({
+            originalText: inputText || formData.summary,
             summary: formData.summary,
             contentType: formData.contentType,
             category: formData.category,
             status: formData.status,
+            isHighlight: false,
+            timestamp: new Date().toLocaleString(),
             date: selectedDate
-          } 
-        : item
-      ));
+        });
+    }
+    closeModal();
+};
     } else {
       // Create new item
       const newItem: NewsItem = {
