@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Calendar as CalendarIcon, Archive as ArchiveIcon } from 'lucide-react';
-import { Dashboard } from './components/Dashboard';
-import { DailyOps } from './components/DailyOps';
-import { Archive } from './components/Archive';
+import { Dashboard } from './components/Dashboard.tsx';
+import { DailyOps } from './components/DailyOps.tsx';
+import { Archive } from './components/Archive.tsx';
 import { NewsItem, Milestone, MonthPlan, Category, Status, ContentType, CONTENT_TYPES } from './types';
 
 // Mock Data for Roadmap
