@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'), // แนะนำให้ชี้ไปที่โฟลเดอร์ src
+        '@': path.resolve(__dirname, '.') // แนะนำให้ชี้ไปที่โฟลเดอร์ src
       },
     },
     build: {
