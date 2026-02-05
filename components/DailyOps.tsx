@@ -9,8 +9,9 @@ import {
 
 interface DailyOpsProps {
   newsItems: NewsItem[];
-  onAddNews: (newItem: Omit<NewsItem, 'id'>) => Promise<void>; // รับฟังก์ชันบันทึกลง Supabase
-  onUpdateNews?: (item: NewsItem) => Promise<void>; // (เผื่อไว้สำหรับ Update)
+  onAddNews: (newItem: Omit<NewsItem, 'id'>) => Promise<void>;
+  onUpdateNews: (updatedItem: NewsItem) => Promise<void>; // เพิ่มบรรทัดนี้
+  onDeleteNews: (id: string) => Promise<void>;           // เพิ่มบรรทัดนี้
   currentMonthTheme: string;
 }
 
