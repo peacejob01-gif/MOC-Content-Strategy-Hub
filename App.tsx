@@ -4,7 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { DailyOps } from './components/DailyOps';
 import { Archive } from './components/Archive';
 import { NewsItem, Milestone, MonthPlan } from './types';
-import { supabase } from './src/lib/supabase'; // ตรวจสอบ path ให้ถูกต้อง (ปกติเป็น ./src/...)
+import { supabase } from './src/lib/supabase'; 
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'archive'>('dashboard');
@@ -13,7 +13,7 @@ const App: React.FC = () => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- 1. ดึงข้อมูลจาก Supabase เมื่อเปิดแอป ---
+  // --- 1. ดึงข้อมูลจากฐานข้อมูลจริง (Cloud Only) ---
   useEffect(() => {
     fetchData();
   }, []);
@@ -21,27 +21,29 @@ const App: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // ดึงข้อมูลพร้อมกันจาก 3 ตารางเพื่อความรวดเร็ว
+      // ดึงข้อมูลพร้อมกัน 3 ตารางเพื่อความรวดเร็วที่สุด
       const [newsRes, roadmapRes, milestoneRes] = await Promise.all([
         supabase.from('news_items').select('*').order('date', { ascending: false }),
         supabase.from('roadmaps').select('*').order('id', { ascending: true }),
         supabase.from('milestones').select('*').order('date', { ascending: true })
       ]);
 
-      if (newsRes.error) throw newsRes.error;
+      if (newsRes.error) console.error('News Error:', newsRes.error);
+      if (roadmapRes.error) console.error('Roadmap Error:', roadmapRes.error);
+      if (milestoneRes.error) console.error('Milestone Error:', milestoneRes.error);
       
       setNewsItems(newsRes.data || []);
       setRoadmap(roadmapRes.data || []);
       setMilestones(milestoneRes.data || []);
       
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Fetch System Error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 2. ฟังก์ชันจัดการข้อมูล (CRUD) ---
+  // --- 2. ฟังก์ชันจัดการข้อมูลผ่าน Supabase (CRUD) ---
   const handleAddNews = async (newItem: Omit<NewsItem, 'id'>) => {
     const id = crypto.randomUUID();
     const { data, error } = await supabase
@@ -91,11 +93,12 @@ const App: React.FC = () => {
     }
   };
 
-  // --- 3. ส่วนการแสดงผลเนื้อหา ---
+  // --- 3. ส่วนควบคุมการเปลี่ยนหน้าหน้าจอ ---
   const renderContent = () => {
     if (loading) return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-blue-900 animate-pulse font-medium">กำลังโหลดข้อมูลจากระบบออนไลน์...</div>
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-900 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-blue-900 font-medium">เชื่อมต่อฐานข้อมูล MOC Cloud...</div>
       </div>
     );
 
@@ -115,7 +118,7 @@ const App: React.FC = () => {
             onAddNews={handleAddNews} 
             onUpdateNews={handleUpdateNews} 
             onDeleteNews={handleDeleteNews} 
-            currentMonthTheme={roadmap.find(r => r.month === 'May')?.theme || "Strategic Plan"} // เปลี่ยนตามเดือนปัจจุบันได้
+            currentMonthTheme={roadmap.length > 0 ? roadmap[0].theme : "Strategic Planning"} 
           />
         );
       case 'archive':
@@ -127,7 +130,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex text-slate-900">
-      {/* Sidebar */}
+      {/* Sidebar เมนูหลัก */}
       <aside className="w-64 bg-blue-900 text-white flex flex-col fixed h-full shadow-2xl z-20">
         <div className="p-6 border-b border-blue-800">
           <h1 className="text-xl font-bold leading-tight">MOC<br/>
@@ -138,30 +141,30 @@ const App: React.FC = () => {
         <nav className="flex-1 p-4 space-y-2">
           <button 
             onClick={() => setActiveTab('dashboard')} 
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${activeTab === 'dashboard' ? 'bg-blue-700 shadow-inner' : 'hover:bg-blue-800/50'}`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}
           >
             <LayoutDashboard className="w-5 h-5" />
-            <span>Strategic Dashboard</span>
+            <span className="font-medium">Strategic Dashboard</span>
           </button>
           <button 
             onClick={() => setActiveTab('daily')} 
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${activeTab === 'daily' ? 'bg-blue-700 shadow-inner' : 'hover:bg-blue-800/50'}`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'daily' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}
           >
             <CalendarIcon className="w-5 h-5" />
-            <span>Add Daily News</span>
+            <span className="font-medium">Daily Operations</span>
           </button>
           <button 
             onClick={() => setActiveTab('archive')} 
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${activeTab === 'archive' ? 'bg-blue-700 shadow-inner' : 'hover:bg-blue-800/50'}`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'archive' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}
           >
             <ArchiveIcon className="w-5 h-5" />
-            <span>Content Library</span>
+            <span className="font-medium">Content Library</span>
           </button>
         </nav>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen bg-slate-50">
+      {/* Main Content พื้นที่แสดงผล */}
+      <main className="flex-1 ml-64 p-8 overflow-y-auto min-h-screen bg-slate-50">
         <div className="max-w-7xl mx-auto">
             {renderContent()}
         </div>
