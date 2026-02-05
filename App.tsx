@@ -55,29 +55,73 @@ const App: React.FC = () => {
     }
   };
 
+  // --- 3. ฟังก์ชันแก้ไขข้อมูล (Update) ---
+const handleUpdateNews = async (updatedItem: NewsItem) => {
+  const { error } = await supabase
+    .from('news_items')
+    .update({
+      summary: updatedItem.summary,
+      category: updatedItem.category,
+      contentType: updatedItem.contentType,
+      status: updatedItem.status,
+      date: updatedItem.date,
+      originalText: updatedItem.originalText
+    })
+    .eq('id', updatedItem.id);
+
+  if (error) {
+    console.error('Error updating:', error);
+    alert('แก้ไขข้อมูลไม่สำเร็จ');
+  } else {
+    // อัปเดต State ในหน้าจอ
+    setNewsItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  }
+};
+
+// --- 4. ฟังก์ชันลบข้อมูล (Delete) ---
+const handleDeleteNews = async (id: string) => {
+  const { error } = await supabase
+    .from('news_items')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting:', error);
+    alert('ลบข้อมูลไม่สำเร็จ');
+  } else {
+    // ลบออกจาก State ในหน้าจอ
+    setNewsItems(prev => prev.filter(item => item.id !== id));
+  }
+};
+
   const renderContent = () => {
     if (loading) return <div className="p-8 text-center text-blue-900">กำลังโหลดข้อมูลออนไลน์...</div>;
 
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard 
-            milestones={[]} // คุณสามารถสร้างตาราง milestones เพิ่มใน Supabase ได้ภายหลัง
+            milestones={[]} 
             roadmap={MOCK_ROADMAP} 
             completedCount={newsItems.filter(i => i.status === 'Published').length} 
         />;
+
       case 'daily':
         return <DailyOps 
             newsItems={newsItems} 
-            onAddNews={handleAddNews} // ส่งฟังก์ชันบันทึกลงฐานข้อมูลไปใช้
+            onAddNews={handleAddNews} 
+            // --- เพิ่ม 2 บรรทัดนี้ลงไปตรงนี้ครับ ---
+            onUpdateNews={handleUpdateNews} 
+            onDeleteNews={handleDeleteNews} 
+            // ----------------------------------
             currentMonthTheme="Back to School"
         />;
+
       case 'archive':
         return <Archive newsItems={newsItems} />;
       default:
         return <Dashboard milestones={[]} roadmap={MOCK_ROADMAP} completedCount={0} />;
     }
   };
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex">
       {/* Sidebar (เหมือนเดิมแต่เปลี่ยนเมนูเล็กน้อย) */}
