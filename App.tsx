@@ -3,7 +3,7 @@ import { LayoutDashboard, Calendar as CalendarIcon, Archive as ArchiveIcon } fro
 import { Dashboard } from './components/Dashboard.tsx';
 import { DailyOps } from './components/DailyOps.tsx';
 import { Archive } from './components/Archive.tsx';
-import { NewsItem, Milestone, MonthPlan, Category, Status, ContentType, CONTENT_TYPES } from './types';
+import { NewsItem, Milestone, MonthPlan, Category, Status, ContentType, CONTENT_TYPES } from './types.ts';
 
 // Mock Data for Roadmap
 const MOCK_ROADMAP: MonthPlan[] = [
