@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Calendar as CalendarIcon, Archive as ArchiveIcon } from 'lucide-react';
-import { Dashboard } from './components/Dashboard.tsx';
-import { DailyOps } from './components/DailyOps.tsx';
-import { Archive } from './components/Archive.tsx';
-import { NewsItem, Milestone, MonthPlan } from './types.ts';
-import { supabase } from './lib/supabase.ts'; // นำเข้าตัวเชื่อมต่อที่สร้างไว้
+// ตัด .tsx ออกเพื่อให้ Vite จัดการ Path ได้ยืดหยุ่นขึ้น
+import { Dashboard } from './components/Dashboard';
+import { DailyOps } from './components/DailyOps';
+import { Archive } from './components/Archive';
+import { NewsItem, Milestone, MonthPlan } from './types';
+import { supabase } from '.src/lib/supabase';
 
 // ข้อมูลคงที่สำหรับ Roadmap (คงไว้ได้)
 const MOCK_ROADMAP: MonthPlan[] = [
