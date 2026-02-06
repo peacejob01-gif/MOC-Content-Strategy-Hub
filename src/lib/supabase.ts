@@ -1,15 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// ใน Vite ต้องใช้ import.meta.env เท่านั้น
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// ดึงค่าแบบ Vite-safe
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// ป้องกันหน้าขาวหากลืมใส่ Key
+// ถ้าไม่มี Key ให้แจ้งเตือนใน Console แทนการทำเครื่องค้าง
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing Supabase Keys! โปรดตั้งค่า Environment Variables ใน Vercel");
+  console.warn("⚠️ Supabase Config Missing: อย่าลืมใส่ Env ใน Vercel นะครับ");
 }
 
-export const supabase = createClient(
-  supabaseUrl || '', 
-  supabaseAnonKey || ''
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
