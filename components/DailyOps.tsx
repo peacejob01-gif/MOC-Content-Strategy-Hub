@@ -117,4 +117,70 @@ export const DailyOps: React.FC<DailyOpsProps> = ({
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button onClick={() => handleDelete(item.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                      <Trash2 className="w-4
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="p-20 text-center flex flex-col items-center">
+            <LayoutList className="w-12 h-12 text-slate-200 mb-2" />
+            <p className="text-slate-400">ยังไม่มีข้อมูลในระบบ Cloud</p>
+          </div>
+        )}
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200">
+            <div className="bg-blue-900 p-6 text-white flex justify-between items-center">
+               <h3 className="text-xl font-bold">{editingItem ? 'Edit Content' : 'New Content'}</h3>
+               <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6" /></button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-8 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Summary</label>
+                <textarea 
+                  className="w-full border-2 border-slate-100 rounded-xl p-4 h-32 outline-none"
+                  value={formData.summary}
+                  onChange={(e) => setFormData({...formData, summary: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Category</label>
+                  <select 
+                    className="w-full border-2 border-slate-100 rounded-xl p-3 bg-white"
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  >
+                    <option value="Economic">Economic</option>
+                    <option value="Policy">Policy</option>
+                    <option value="Consumer">Consumer</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Status</label>
+                  <select 
+                    className="w-full border-2 border-slate-100 rounded-xl p-3 bg-white"
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  >
+                    <option value="Draft">Draft</option>
+                    <option value="Published">Published</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg">
+                {editingItem ? 'Update Database' : 'Save to Cloud'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
