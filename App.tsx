@@ -4,7 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { DailyOps } from './components/DailyOps';
 import { Archive } from './components/Archive';
 import { NewsItem, Milestone, MonthPlan } from './types';
-import { supabase } from './src/lib/supabase'; 
+import { supabase } from './lib/supabase'; // แก้ไข Path ให้ถูกต้อง
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'archive'>('dashboard');
@@ -21,18 +21,16 @@ const App: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // ดึงข้อมูลและบังคับเรียงลำดับให้ชัดเจน เพื่อป้องกันข้อมูลสลับที่
       const [newsRes, roadmapRes, milestoneRes] = await Promise.all([
         supabase.from('news_items').select('*').order('date', { ascending: false }),
-        supabase.from('roadmaps').select('*').order('id', { ascending: true }), // เรียงตาม ID ของเดือน
-        supabase.from('milestones').select('*').order('id', { ascending: true }) // เรียงตาม ID ของ Milestone
+        supabase.from('roadmaps').select('*').order('id', { ascending: true }),
+        supabase.from('milestones').select('*').order('id', { ascending: true })
       ]);
 
       if (newsRes.error) throw newsRes.error;
       if (roadmapRes.error) throw roadmapRes.error;
       if (milestoneRes.error) throw milestoneRes.error;
       
-      // อัปเดต State ด้วยข้อมูลจริง
       setNewsItems(newsRes.data || []);
       setRoadmap(roadmapRes.data || []);
       setMilestones(milestoneRes.data || []);
@@ -45,7 +43,7 @@ const App: React.FC = () => {
   };
 
   // --- 2. ฟังก์ชันจัดการข้อมูล (CRUD) ---
-  const handleAddNews = async (newItem: Omit<NewsItem, 'id'>) => {
+  const handleAddNews = async (newItem: any) => {
     const id = crypto.randomUUID();
     const { data, error } = await supabase
       .from('news_items')
@@ -55,6 +53,7 @@ const App: React.FC = () => {
     if (!error && data) {
       setNewsItems(prev => [data[0], ...prev]);
     } else {
+      console.error('Insert Error:', error);
       alert('บันทึกข้อมูลไม่สำเร็จ');
     }
   };
@@ -73,6 +72,7 @@ const App: React.FC = () => {
       .eq('id', updatedItem.id);
 
     if (error) {
+      console.error('Update Error:', error);
       alert('แก้ไขข้อมูลไม่สำเร็จ');
     } else {
       setNewsItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
@@ -101,7 +101,6 @@ const App: React.FC = () => {
       </div>
     );
 
-    // ป้องกันกรณี Roadmap ยังไม่มีข้อมูล
     const currentTheme = roadmap.length > 0 ? roadmap[0].theme : "Strategic Planning";
 
     switch (activeTab) {
@@ -124,7 +123,8 @@ const App: React.FC = () => {
           />
         );
       case 'archive':
-        return <Archive newsItems={newsItems} />;
+        // แก้ไข: เพิ่ม setNewsItems ตามที่ Error TS2741 แจ้งเตือน
+        return <Archive newsItems={newsItems} setNewsItems={setNewsItems} />;
       default:
         return null;
     }
