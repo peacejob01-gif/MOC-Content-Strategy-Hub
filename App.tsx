@@ -4,7 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { DailyOps } from './components/DailyOps';
 import { Archive } from './components/Archive';
 import { NewsItem, Milestone, MonthPlan } from './types';
-import { supabase } from './src/lib/supabase'; // แก้ไข Path ให้ถูกต้อง
+import { supabase } from './src/lib/supabase';// แก้ไข Path ให้ถูกต้อง
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'archive'>('dashboard');
