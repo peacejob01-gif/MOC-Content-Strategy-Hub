@@ -3,160 +3,158 @@ import { LayoutDashboard, Calendar as CalendarIcon, Archive as ArchiveIcon } fro
 import { Dashboard } from './components/Dashboard';
 import { DailyOps } from './components/DailyOps';
 import { Archive } from './components/Archive';
-import { NewsItem, Milestone, MonthPlan } from './types';
-import { supabase } from './src/lib/supabase'; 
+import { NewsItem, Milestone, MonthPlan, Category, Status, ContentType, CONTENT_TYPES } from './types';
+
+// Mock Data for Roadmap
+const MOCK_ROADMAP: MonthPlan[] = [
+  { month: 'April', theme: 'Songkran & Soft Power', highlights: ['Elephant Pants Viral', 'Water Festival Safety'] },
+  { month: 'May', theme: 'Back to School', highlights: ['School Uniform Pricing', 'Stationery Support'] },
+  { month: 'June', theme: 'Fruit Season', highlights: ['Durian Export', 'Mangosteen Festival'] },
+  { month: 'July', theme: 'King\'s Birthday', highlights: ['Royal Projects', 'Community Service'] },
+];
+
+const MOCK_MILESTONES: Milestone[] = [
+  { id: '1', name: 'Phase 1 Delivery', deadlineDay: 70, targetKPI: 200, currentValue: 0, description: '30 Jan - 9 Apr 2026' },
+  { id: '2', name: 'Phase 2 Delivery', deadlineDay: 158, targetKPI: 200, currentValue: 0, description: '10 Apr - 6 Jul 2026' },
+  { id: '3', name: 'Phase 3 Delivery', deadlineDay: 220, targetKPI: 200, currentValue: 0, description: '7 Jul - 6 Sep 2026' },
+];
+
+// Phase Dates Configuration
+const PHASE_RANGES = [
+    { id: '1', start: '2026-01-30', end: '2026-04-09' },
+    { id: '2', start: '2026-04-10', end: '2026-07-06' },
+    { id: '3', start: '2026-07-07', end: '2026-09-06' }
+];
+
+// Generate mock data centered around 2026 to visualize the phases
+const generateMockNews = (): NewsItem[] => {
+  const items: NewsItem[] = [];
+  const categories: Category[] = ['Trust & Impact', 'MOC Update', 'Policy to People'];
+  const statuses: Status[] = ['Published', 'Reviewing', 'In Production', 'Backlog'];
+  
+  // Start generating from Phase 1 start in 2026
+  const baseDate = new Date('2026-02-01');
+  
+  // Create 60 mock items
+  for (let i = 0; i < 60; i++) {
+    const isPublished = i < 40; // First 40 are published
+    const date = new Date(baseDate);
+    // Spread dates over ~150 days to cover Phase 1 and part of Phase 2
+    date.setDate(date.getDate() + Math.floor(Math.random() * 150)); 
+    
+    items.push({
+      id: `mock-${i}`,
+      originalText: `Mock news content ${i}`,
+      summary: `Strategic Content Update regarding MOC Policy ${i+1}`,
+      contentType: CONTENT_TYPES[Math.floor(Math.random() * CONTENT_TYPES.length)],
+      category: categories[Math.floor(Math.random() * categories.length)],
+      status: isPublished ? 'Published' : statuses[Math.floor(Math.random() * 3) + 1],
+      isHighlight: Math.random() > 0.8,
+      timestamp: date.toLocaleString(),
+      date: date.toISOString().split('T')[0],
+    });
+  }
+  return items;
+};
+
+const CURRENT_MONTH_THEME = "Back to School";
+const CURRENT_PROJECT_DAY = 100;
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'archive'>('dashboard');
-  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [roadmap, setRoadmap] = useState<MonthPlan[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // --- 1. ดึงข้อมูลจากฐานข้อมูลจริง ---
+  const [newsItems, setNewsItems] = useState<NewsItem[]>(generateMockNews());
+  const [milestones, setMilestones] = useState<Milestone[]>(MOCK_MILESTONES);
+  
+  // Update Milestones based on REAL count from Content Library (Published items)
+  // Logic: Check if item date falls within the specific Phase Date Ranges
   useEffect(() => {
-    fetchData();
-  }, []);
+    setMilestones(prev => prev.map((m) => {
+        // Find configuration for this phase
+        const range = PHASE_RANGES.find(r => r.id === m.id);
+        
+        if (!range) return m;
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // ดึงข้อมูลและบังคับเรียงลำดับให้ชัดเจน เพื่อป้องกันข้อมูลสลับที่
-      const [newsRes, roadmapRes, milestoneRes] = await Promise.all([
-        supabase.from('news_items').select('*').order('date', { ascending: false }),
-        supabase.from('roadmaps').select('*').order('id', { ascending: true }), // เรียงตาม ID ของเดือน
-        supabase.from('milestones').select('*').order('id', { ascending: true }) // เรียงตาม ID ของ Milestone
-      ]);
+        const startTimestamp = new Date(range.start).getTime();
+        const endTimestamp = new Date(range.end).getTime();
+        
+        const count = newsItems.filter(item => {
+            if (item.status !== 'Published') return false;
+            
+            const itemTimestamp = new Date(item.date).getTime();
+            return itemTimestamp >= startTimestamp && itemTimestamp <= endTimestamp;
+        }).length;
 
-      if (newsRes.error) throw newsRes.error;
-      if (roadmapRes.error) throw roadmapRes.error;
-      if (milestoneRes.error) throw milestoneRes.error;
-      
-      // อัปเดต State ด้วยข้อมูลจริง
-      setNewsItems(newsRes.data || []);
-      setRoadmap(roadmapRes.data || []);
-      setMilestones(milestoneRes.data || []);
-      
-    } catch (error) {
-      console.error('Fetch System Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        return {
+            ...m,
+            currentValue: count
+        };
+    }));
+  }, [newsItems]);
 
-  // --- 2. ฟังก์ชันจัดการข้อมูล (CRUD) ---
-  const handleAddNews = async (newItem: Omit<NewsItem, 'id'>) => {
-    const id = crypto.randomUUID();
-    const { data, error } = await supabase
-      .from('news_items')
-      .insert([{ ...newItem, id }])
-      .select();
-
-    if (!error && data) {
-      setNewsItems(prev => [data[0], ...prev]);
-    } else {
-      alert('บันทึกข้อมูลไม่สำเร็จ');
-    }
-  };
-
-  const handleUpdateNews = async (updatedItem: NewsItem) => {
-    const { error } = await supabase
-      .from('news_items')
-      .update({
-        summary: updatedItem.summary,
-        category: updatedItem.category,
-        contentType: updatedItem.contentType,
-        status: updatedItem.status,
-        date: updatedItem.date,
-        originalText: updatedItem.originalText
-      })
-      .eq('id', updatedItem.id);
-
-    if (error) {
-      alert('แก้ไขข้อมูลไม่สำเร็จ');
-    } else {
-      setNewsItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-    }
-  };
-
-  const handleDeleteNews = async (id: string) => {
-    const { error } = await supabase
-      .from('news_items')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      alert('ลบข้อมูลไม่สำเร็จ');
-    } else {
-      setNewsItems(prev => prev.filter(item => item.id !== id));
-    }
-  };
-
-  // --- 3. ส่วนเรนเดอร์เนื้อหา ---
   const renderContent = () => {
-    if (loading) return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <div className="w-12 h-12 border-4 border-blue-900 border-t-transparent rounded-full animate-spin"></div>
-        <div className="text-blue-900 font-medium">Connecting to MOC Cloud Database...</div>
-      </div>
-    );
-
-    // ป้องกันกรณี Roadmap ยังไม่มีข้อมูล
-    const currentTheme = roadmap.length > 0 ? roadmap[0].theme : "Strategic Planning";
-
     switch (activeTab) {
       case 'dashboard':
-        return (
-          <Dashboard 
+        return <Dashboard 
             milestones={milestones} 
-            roadmap={roadmap} 
+            roadmap={MOCK_ROADMAP} 
             completedCount={newsItems.filter(i => i.status === 'Published').length} 
-          />
-        );
+        />;
       case 'daily':
-        return (
-          <DailyOps 
+        return <DailyOps 
             newsItems={newsItems} 
-            onAddNews={handleAddNews} 
-            onUpdateNews={handleUpdateNews} 
-            onDeleteNews={handleDeleteNews} 
-            currentMonthTheme={currentTheme} 
-          />
-        );
+            setNewsItems={setNewsItems} 
+            currentMonthTheme={CURRENT_MONTH_THEME}
+        />;
       case 'archive':
-        return <Archive newsItems={newsItems} />;
+        return <Archive newsItems={newsItems} setNewsItems={setNewsItems} />;
       default:
-        return null;
+        return <Dashboard milestones={milestones} roadmap={MOCK_ROADMAP} completedCount={0} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex text-slate-900">
+    <div className="min-h-screen bg-slate-50 font-sans flex">
+      {/* Sidebar Navigation */}
       <aside className="w-64 bg-blue-900 text-white flex flex-col fixed h-full shadow-2xl z-20">
         <div className="p-6 border-b border-blue-800">
-          <h1 className="text-xl font-bold leading-tight">MOC<br/>
-            <span className="text-blue-300 font-light text-base">Content Hub (Live)</span>
-          </h1>
+          <h1 className="text-xl font-bold leading-tight">MOC<br/><span className="text-blue-300 font-light text-base">Content Hub</span></h1>
         </div>
         
         <nav className="flex-1 p-4 space-y-2">
-          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}>
+          <button 
+            onClick={() => setActiveTab('dashboard')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-blue-700 text-white shadow-md' : 'text-blue-200 hover:bg-blue-800 hover:text-white'}`}
+          >
             <LayoutDashboard className="w-5 h-5" />
             <span className="font-medium">Strategic Dashboard</span>
           </button>
-          <button onClick={() => setActiveTab('daily')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'daily' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}>
+          
+          <button 
+            onClick={() => setActiveTab('daily')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'daily' ? 'bg-blue-700 text-white shadow-md' : 'text-blue-200 hover:bg-blue-800 hover:text-white'}`}
+          >
             <CalendarIcon className="w-5 h-5" />
-            <span className="font-medium">Daily Operations</span>
+            <span className="font-medium">Calendar & Ops</span>
           </button>
-          <button onClick={() => setActiveTab('archive')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'archive' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}>
+          
+          <button 
+            onClick={() => setActiveTab('archive')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'archive' ? 'bg-blue-700 text-white shadow-md' : 'text-blue-200 hover:bg-blue-800 hover:text-white'}`}
+          >
             <ArchiveIcon className="w-5 h-5" />
             <span className="font-medium">Content Library</span>
           </button>
         </nav>
+
+        <div className="p-4 bg-blue-950 text-xs text-blue-400">
+            <p>Theme: {CURRENT_MONTH_THEME}</p>
+            <p className="mt-1">Day {CURRENT_PROJECT_DAY}/240</p>
+        </div>
       </aside>
 
-      <main className="flex-1 ml-64 p-8 overflow-y-auto min-h-screen">
-        <div className="max-w-7xl mx-auto">
+      {/* Main Content Area */}
+      <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
+        <div className="max-w-7xl mx-auto h-full">
             {renderContent()}
         </div>
       </main>
