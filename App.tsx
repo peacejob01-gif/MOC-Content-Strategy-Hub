@@ -1,160 +1,164 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Calendar as CalendarIcon, Archive as ArchiveIcon, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Calendar as CalendarIcon, Archive as ArchiveIcon } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { DailyOps } from './components/DailyOps';
 import { Archive } from './components/Archive';
-import { NewsItem } from './types';
-
-// ข้อมูลจำลอง (Mockup Data) เพื่อให้เห็นหน้าตาเว็บทันที
-const MOCK_DATA: NewsItem[] = [
-  {
-    id: '1',
-    summary: 'พาณิชย์ลดราคา! ช่วยประชาชนรับปี 2026',
-    date: '2026-02-09',
-    category: 'Policy to People',
-    contentType: 'Video',
-    status: 'Published',
-    isHighlight: true,
-    originalText: 'โครงการพาณิชย์ลดราคาช่วยประชาชน...',
-    timestamp: new Date().toISOString()
-  },
-  {
-    id: '2',
-    summary: 'สรุปภาวะการส่งออกเดือนมกราคม โตต่อเนื่อง 5%',
-    date: '2026-02-08',
-    category: 'MOC Update',
-    contentType: 'Banner',
-    status: 'Draft',
-    isHighlight: false,
-    originalText: 'ตัวเลขการส่งออกไทยในเดือนมกราคม...',
-    timestamp: new Date().toISOString()
-  }
-];
+import { NewsItem, Milestone, MonthPlan } from './types';
+import { supabase } from './src/lib/supabase'; 
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'archive'>('dashboard');
-  const [newsItems, setNewsItems] = useState<NewsItem[]>(MOCK_DATA);
-  const [loading, setLoading] = useState(false);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [roadmap, setRoadmap] = useState<MonthPlan[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // สถิติสำหรับ Dashboard
-  const stats = {
-    total: newsItems.length,
-    published: newsItems.filter(i => i.status === 'Published').length,
-    pending: newsItems.filter(i => i.status !== 'Published').length
+  // --- 1. ดึงข้อมูลจากฐานข้อมูลจริง ---
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // ดึงข้อมูลและบังคับเรียงลำดับให้ชัดเจน เพื่อป้องกันข้อมูลสลับที่
+      const [newsRes, roadmapRes, milestoneRes] = await Promise.all([
+        supabase.from('news_items').select('*').order('date', { ascending: false }),
+        supabase.from('roadmaps').select('*').order('id', { ascending: true }), // เรียงตาม ID ของเดือน
+        supabase.from('milestones').select('*').order('id', { ascending: true }) // เรียงตาม ID ของ Milestone
+      ]);
+
+      if (newsRes.error) throw newsRes.error;
+      if (roadmapRes.error) throw roadmapRes.error;
+      if (milestoneRes.error) throw milestoneRes.error;
+      
+      // อัปเดต State ด้วยข้อมูลจริง
+      setNewsItems(newsRes.data || []);
+      setRoadmap(roadmapRes.data || []);
+      setMilestones(milestoneRes.data || []);
+      
+    } catch (error) {
+      console.error('Fetch System Error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // --- 2. ฟังก์ชันจัดการข้อมูล (CRUD) ---
+  const handleAddNews = async (newItem: Omit<NewsItem, 'id'>) => {
+    const id = crypto.randomUUID();
+    const { data, error } = await supabase
+      .from('news_items')
+      .insert([{ ...newItem, id }])
+      .select();
+
+    if (!error && data) {
+      setNewsItems(prev => [data[0], ...prev]);
+    } else {
+      alert('บันทึกข้อมูลไม่สำเร็จ');
+    }
+  };
+
+  const handleUpdateNews = async (updatedItem: NewsItem) => {
+    const { error } = await supabase
+      .from('news_items')
+      .update({
+        summary: updatedItem.summary,
+        category: updatedItem.category,
+        contentType: updatedItem.contentType,
+        status: updatedItem.status,
+        date: updatedItem.date,
+        originalText: updatedItem.originalText
+      })
+      .eq('id', updatedItem.id);
+
+    if (error) {
+      alert('แก้ไขข้อมูลไม่สำเร็จ');
+    } else {
+      setNewsItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+    }
+  };
+
+  const handleDeleteNews = async (id: string) => {
+    const { error } = await supabase
+      .from('news_items')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      alert('ลบข้อมูลไม่สำเร็จ');
+    } else {
+      setNewsItems(prev => prev.filter(item => item.id !== id));
+    }
+  };
+
+  // --- 3. ส่วนเรนเดอร์เนื้อหา ---
   const renderContent = () => {
+    if (loading) return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-900 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-blue-900 font-medium">Connecting to MOC Cloud Database...</div>
+      </div>
+    );
+
+    // ป้องกันกรณี Roadmap ยังไม่มีข้อมูล
+    const currentTheme = roadmap.length > 0 ? roadmap[0].theme : "Strategic Planning";
+
     switch (activeTab) {
       case 'dashboard':
         return (
-          <div className="space-y-6">
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
-                <div className="p-3 bg-blue-50 rounded-xl text-blue-600"><TrendingUp /></div>
-                <div>
-                  <p className="text-sm text-slate-500 font-medium">Total Content</p>
-                  <p className="text-2xl font-bold text-slate-800">{stats.total} Pieces</p>
-                </div>
-              </div>
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
-                <div className="p-3 bg-green-50 rounded-xl text-green-600"><CheckCircle /></div>
-                <div>
-                  <p className="text-sm text-slate-500 font-medium">Published</p>
-                  <p className="text-2xl font-bold text-slate-800">{stats.published}</p>
-                </div>
-              </div>
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
-                <div className="p-3 bg-amber-50 rounded-xl text-amber-600"><Clock /></div>
-                <div>
-                  <p className="text-sm text-slate-500 font-medium">Pending</p>
-                  <p className="text-2xl font-bold text-slate-800">{stats.pending}</p>
-                </div>
-              </div>
-            </div>
-
-            <Dashboard 
-              milestones={[]} 
-              roadmap={[]} 
-              completedCount={stats.published} 
-            />
-          </div>
+          <Dashboard 
+            milestones={milestones} 
+            roadmap={roadmap} 
+            completedCount={newsItems.filter(i => i.status === 'Published').length} 
+          />
         );
       case 'daily':
         return (
           <DailyOps 
             newsItems={newsItems} 
-            onAddNews={async (item) => setNewsItems([item, ...newsItems])} 
-            onUpdateNews={async (id, item) => setNewsItems(newsItems.map(n => n.id === id ? {...n, ...item} : n))} 
-            onDeleteNews={async (id) => setNewsItems(newsItems.filter(n => n.id !== id))} 
-            currentMonthTheme="MOC Digital Strategy 2026" 
+            onAddNews={handleAddNews} 
+            onUpdateNews={handleUpdateNews} 
+            onDeleteNews={handleDeleteNews} 
+            currentMonthTheme={currentTheme} 
           />
         );
       case 'archive':
-        return <Archive newsItems={newsItems} setNewsItems={setNewsItems} />;
+        return <Archive newsItems={newsItems} />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex font-sans">
-      {/* Sidebar - Midnight Blue ตามรูปเป้าหมาย */}
-      <aside className="w-72 bg-[#0F172A] text-white fixed h-full flex flex-col shadow-2xl z-30">
-        <div className="p-8">
-          <div className="flex items-center space-x-3 mb-10">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-500/20">M</div>
-            <h1 className="text-xl font-bold tracking-tight">MOC HUB</h1>
-          </div>
-          
-          <nav className="space-y-2">
-            {[
-              { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-              { id: 'daily', label: 'Daily Operations', icon: CalendarIcon },
-              { id: 'archive', label: 'Content Archive', icon: ArchiveIcon },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  activeTab === tab.id 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                }`}
-              >
-                <tab.icon size={20} />
-                <span className="font-medium">{tab.label}</span>
-              </button>
-            ))}
-          </nav>
+    <div className="min-h-screen bg-slate-50 font-sans flex text-slate-900">
+      <aside className="w-64 bg-blue-900 text-white flex flex-col fixed h-full shadow-2xl z-20">
+        <div className="p-6 border-b border-blue-800">
+          <h1 className="text-xl font-bold leading-tight">MOC<br/>
+            <span className="text-blue-300 font-light text-base">Content Hub (Live)</span>
+          </h1>
         </div>
         
-        <div className="mt-auto p-8">
-          <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
-            <p className="text-xs text-slate-500 mb-1 font-medium uppercase tracking-wider">System Status</p>
-            <p className="text-sm font-medium text-green-400 flex items-center">
-              <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
-              Local Runtime Mode
-            </p>
-          </div>
-        </div>
+        <nav className="flex-1 p-4 space-y-2">
+          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}>
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="font-medium">Strategic Dashboard</span>
+          </button>
+          <button onClick={() => setActiveTab('daily')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'daily' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}>
+            <CalendarIcon className="w-5 h-5" />
+            <span className="font-medium">Daily Operations</span>
+          </button>
+          <button onClick={() => setActiveTab('archive')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'archive' ? 'bg-blue-700 shadow-lg' : 'hover:bg-blue-800/50'}`}>
+            <ArchiveIcon className="w-5 h-5" />
+            <span className="font-medium">Content Library</span>
+          </button>
+        </nav>
       </aside>
 
-      {/* Main Content */}
-      <main className="ml-72 flex-1 p-10 min-h-screen overflow-y-auto">
-        <header className="flex justify-between items-start mb-10">
-          <div>
-            <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight capitalize">{activeTab}</h2>
-            <p className="text-slate-500 mt-1">MOC Media Strategy Hub & Content Planner</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 shadow-sm">
-              Feb 9, 2026
-            </div>
-          </div>
-        </header>
-
-        {renderContent()}
+      <main className="flex-1 ml-64 p-8 overflow-y-auto min-h-screen">
+        <div className="max-w-7xl mx-auto">
+            {renderContent()}
+        </div>
       </main>
     </div>
   );
