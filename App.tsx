@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Calendar as CalendarIcon, Archive as ArchiveIcon } from 'lucide-react';
+import { LayoutDashboard, Calendar as CalendarIcon, Archive as ArchiveIcon, Database } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { DailyOps } from './components/DailyOps';
 import { Archive } from './components/Archive';
-import { NewsItem, Milestone, MonthPlan } from './types';
-import { supabase } from './src/lib/supabase';
+import { NewsItem } from './types';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'archive'>('dashboard');
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [roadmap, setRoadmap] = useState<MonthPlan[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- 1. ดึงข้อมูลจากฐานข้อมูลจริง ---
+  // ⚠️ เปลี่ยน URL ตรงนี้ให้เป็น API Endpoint ที่คุณได้จาก Sheety ครับ
+  const SHEETY_API_URL = 'https://api.sheety.co/71008b0fa6a5f4f59dbc7934af0852b9/mocInfo/ชีต1';
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -21,94 +20,35 @@ const App: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [newsRes, roadmapRes, milestoneRes] = await Promise.all([
-        supabase.from('news_items').select('*').order('date', { ascending: false }),
-        supabase.from('roadmaps').select('*').order('id', { ascending: true }),
-        supabase.from('milestones').select('*').order('id', { ascending: true })
-      ]);
-
-      if (newsRes.error) throw newsRes.error;
-      if (roadmapRes.error) throw roadmapRes.error;
-      if (milestoneRes.error) throw milestoneRes.error;
+      const response = await fetch(SHEETY_API_URL);
+      const data = await response.json();
       
-      setNewsItems(newsRes.data || []);
-      setRoadmap(roadmapRes.data || []);
-      setMilestones(milestoneRes.data || []);
-      
+      // Sheety จะครอบข้อมูลด้วยชื่อ Sheet (newsItems)
+      // และแปลงหัวตารางเป็น camelCase (เช่น original_text จะกลายเป็น originalText)
+      if (data.newsItems) {
+        setNewsItems(data.newsItems);
+      }
     } catch (error) {
-      console.error('Fetch System Error:', error);
+      console.error('Error fetching data from Sheety:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 2. ฟังก์ชันจัดการข้อมูล (CRUD) ---
-  const handleAddNews = async (newItem: any) => {
-    const id = crypto.randomUUID();
-    const { data, error } = await supabase
-      .from('news_items')
-      .insert([{ ...newItem, id }])
-      .select();
-
-    if (!error && data) {
-      setNewsItems(prev => [data[0], ...prev]);
-    } else {
-      console.error('Insert Error:', error);
-      alert('บันทึกข้อมูลไม่สำเร็จ');
-    }
-  };
-
-  const handleUpdateNews = async (updatedItem: NewsItem) => {
-    const { error } = await supabase
-      .from('news_items')
-      .update({
-        summary: updatedItem.summary,
-        category: updatedItem.category,
-        contentType: updatedItem.contentType,
-        status: updatedItem.status,
-        date: updatedItem.date,
-        originalText: updatedItem.originalText
-      })
-      .eq('id', updatedItem.id);
-
-    if (error) {
-      console.error('Update Error:', error);
-      alert('แก้ไขข้อมูลไม่สำเร็จ');
-    } else {
-      setNewsItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-    }
-  };
-
-  const handleDeleteNews = async (id: string) => {
-    const { error } = await supabase
-      .from('news_items')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      alert('ลบข้อมูลไม่สำเร็จ');
-    } else {
-      setNewsItems(prev => prev.filter(item => item.id !== id));
-    }
-  };
-
-  // --- 3. ส่วนเรนเดอร์เนื้อหา ---
   const renderContent = () => {
     if (loading) return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <div className="w-12 h-12 border-4 border-blue-900 border-t-transparent rounded-full animate-spin"></div>
-        <div className="text-blue-900 font-medium">Connecting to MOC Cloud Database...</div>
+        <div className="text-blue-900 font-medium">Connecting to Google Sheets via Sheety...</div>
       </div>
     );
-
-    const currentTheme = roadmap.length > 0 ? roadmap[0].theme : "Strategic Planning";
 
     switch (activeTab) {
       case 'dashboard':
         return (
           <Dashboard 
-            milestones={milestones} 
-            roadmap={roadmap} 
+            milestones={[]} 
+            roadmap={[]} 
             completedCount={newsItems.filter(i => i.status === 'Published').length} 
           />
         );
@@ -116,14 +56,13 @@ const App: React.FC = () => {
         return (
           <DailyOps 
             newsItems={newsItems} 
-            onAddNews={handleAddNews} 
-            onUpdateNews={handleUpdateNews} 
-            onDeleteNews={handleDeleteNews} 
-            currentMonthTheme={currentTheme} 
+            onAddNews={async () => alert('ฟังก์ชันเพิ่มข้อมูลกำลังถูกย้ายไปที่ Google Sheets')} 
+            onUpdateNews={async () => {}} 
+            onDeleteNews={async () => {}} 
+            currentMonthTheme="MOC Digital Transformation" 
           />
         );
       case 'archive':
-        // แก้ไข: เพิ่ม setNewsItems ตามที่ Error TS2741 แจ้งเตือน
         return <Archive newsItems={newsItems} setNewsItems={setNewsItems} />;
       default:
         return null;
@@ -132,10 +71,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex text-slate-900">
-      <aside className="w-64 bg-blue-900 text-white flex flex-col fixed h-full shadow-2xl z-20">
+      <aside className="w-64 bg-[#003366] text-white flex flex-col fixed h-full shadow-2xl z-20">
         <div className="p-6 border-b border-blue-800">
-          <h1 className="text-xl font-bold leading-tight">MOC<br/>
-            <span className="text-blue-300 font-light text-base">Content Hub (Live)</span>
+          <h1 className="text-xl font-bold leading-tight uppercase">MOC Hub<br/>
+            <span className="text-blue-300 font-light text-xs italic flex items-center mt-1">
+              <Database className="w-3 h-3 mr-1" /> Google Sheets Powered
+            </span>
           </h1>
         </div>
         
